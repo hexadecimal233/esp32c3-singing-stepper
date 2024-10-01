@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-midly = "0.5.3"
+nodi = "1.0.1"
 serialport = "4.5.1"
