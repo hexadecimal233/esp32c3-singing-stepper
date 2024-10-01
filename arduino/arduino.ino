@@ -1,8 +1,4 @@
-
-
-#define PULSE_PER_REV 200  // 决定多少个脉冲转360度 (预留)
-
-#define CHANNEL_NUM 1 //电机数
+#define CHANNEL_NUM 1 // 电机数 !!!!!改我!!!!!
 
 struct Channel {
   int dir_pin; // 方向脚
@@ -38,7 +34,7 @@ struct Channel {
 Channel* channels = new Channel[CHANNEL_NUM];
 
 void setup() {
-  // 这里定义你的输出针脚，注意刷写模式要设置成DIO哦（不然不让跑）
+  // !!!!!改我!!!!! 这里定义你的输出针脚，注意刷写模式要设置成DIO哦（不然不让跑）
   channels[0] = {
     .dir_pin = 18, // GPIO 18
     .pul_pin = 19 // GPIO 19
