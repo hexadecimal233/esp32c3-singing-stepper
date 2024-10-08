@@ -1,4 +1,4 @@
-#define CHANNEL_NUM 1 // 电机数
+#define CHANNEL_NUM 4 // 电机数，ESP32C3只支持四路PWM
 
 struct Channel {
   int dir_pin; // 方向脚
@@ -39,19 +39,19 @@ void setup() {
     .dir_pin = 18, 
     .pul_pin = 19
   };
-  // channels[1] = {
-  //   .dir_pin = 0,
-  //   .pul_pin = 1
-  // };
-  // channels[2] = {
-  //   .dir_pin = 2,
-  //   .pul_pin = 3
-  // };
-  // channels[3] = {
-  //   .dir_pin = 4,
-  //   .pul_pin = 5
-  // };
-
+  channels[1] = {
+    .dir_pin = 4,
+    .pul_pin = 5
+  };
+  channels[2] = {
+    .dir_pin = 2,
+    .pul_pin = 3
+  };
+  channels[3] = {
+    .dir_pin = 0,
+    .pul_pin = 1
+  };
+  
   // 打开通信串口 波特率 115200
   Serial.begin(115200);
 

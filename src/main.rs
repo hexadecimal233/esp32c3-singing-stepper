@@ -1,22 +1,42 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::time::Duration;
 
 use midly::{num::u7, MidiMessage, Smf};
 use nodi::midly;
 use nodi::{midly::Format, timers::Ticker, Connection, MidiEvent, Player, Sheet};
-use serialport::SerialPort;
 
 fn main() {
-    let file = r"D:\Aoharu.mid"; // MIDI文件
-    let port = "COM5"; // 串口名称
-    let motor_count = 1;
+    let mut buf = String::new();
 
-    let midi_data = std::fs::read(file).unwrap();
+    // MIDI文件
+    print!("MIDI文件路径: ");
+    std::io::stdout().flush().unwrap();
+    std::io::stdin().read_line(&mut buf).unwrap();
+    let file = buf.trim().to_string();
+    buf.clear();
+
+    // 串口设备（本人这里是COM5）
+    print!("串口设备名: ");
+    std::io::stdout().flush().unwrap();
+    std::io::stdin().read_line(&mut buf).unwrap();
+    let port = buf.trim().to_string();
+    buf.clear();
+
+    // 电机数量
+    // TODO: 发包让esp32返回步进电机数目
+    print!("步进电机数量: ");
+    std::io::stdout().flush().unwrap();
+    std::io::stdin().read_line(&mut buf).unwrap();
+    let motor_count = buf.trim().to_string().parse::<i32>().unwrap();
+    buf.clear();
+
+    let midi_data = std::fs::read(&file).unwrap();
     let Smf { header, tracks } = &Smf::parse(&midi_data).unwrap();
 
     let timer = Ticker::try_from(header.timing).unwrap();
 
-    let con = MyConnection::new(port, motor_count);
+    let con = MyConnection::new(&port, motor_count);
     let sheet = match header.format {
         Format::SingleTrack | Format::Sequential => Sheet::sequential(&tracks),
         Format::Parallel => Sheet::parallel(&tracks),
@@ -32,7 +52,7 @@ fn freq_from_midi_key(key: i32) -> f32 {
 }
 
 struct MyConnection {
-    port: Box<dyn SerialPort>, // 串口
+    port: Box<dyn serialport::SerialPort>, // 串口
     pressed: HashMap<i32, u7>, // <channel, key>，用来防止电机已经在转的情况下有别的note打断
     motor_count: i32,          // 步进电机数目
 }
@@ -45,7 +65,7 @@ impl Connection for MyConnection {
                 if vel == 0 {
                     self.stop_note(channel, key);
                 } else {
-                    self.play_note(channel, key, true);
+                    self.play_note(channel, key);
                 }
             }
             MidiMessage::NoteOff { key, vel } => {
@@ -70,19 +90,24 @@ impl MyConnection {
         }
     }
 
-    // 播放音符，参数分别是：电机编号，音高，是否让电机反转
-    fn play_note(&mut self, channel: i32, key: u7, reverse: bool) {
+    // 播放音符，参数分别是：电机编号，音高
+    fn play_note(&mut self, channel: i32, key: u7) {
         if self.pressed.contains_key(&channel) {
             return;
         }
 
-        let keyy = u8::from(key) as i32;
+        let reverse = if channel >= self.motor_count {
+            "1"
+        } else {
+            "0"
+        };
+
         let play_data = format!(
             "{} {} {} {}\n",
             0,
             channel % self.motor_count, // 电机编号
-            freq_from_midi_key(keyy),
-            if reverse { "1" } else { "0" }
+            freq_from_midi_key(u8::from(key) as i32),
+            reverse
         );
         self.port
             .write(play_data.as_bytes())
