@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::time::Duration;
 
 use midly::{num::u7, MidiMessage, Smf};
@@ -7,7 +7,7 @@ use nodi::midly;
 use nodi::{midly::Format, timers::Ticker, Connection, MidiEvent, Player, Sheet};
 
 fn main() {
-    let mut buf = String::new();
+    let mut buf = String::new(); // 通用字符串Buffer
 
     // MIDI文件
     print!("MIDI文件路径: ");
@@ -16,27 +16,34 @@ fn main() {
     let file = buf.trim().to_string();
     buf.clear();
 
-    // 串口设备（本人这里是COM5）
+    // 串口设备（本人这里是COM6）
     print!("串口设备名: ");
     std::io::stdout().flush().unwrap();
     std::io::stdin().read_line(&mut buf).unwrap();
-    let port = buf.trim().to_string();
+    let port_name = buf.trim().to_string();
     buf.clear();
 
-    // 电机数量
-    // TODO: 发包让esp32返回步进电机数目
-    print!("步进电机数量: ");
-    std::io::stdout().flush().unwrap();
-    std::io::stdin().read_line(&mut buf).unwrap();
-    let motor_count = buf.trim().to_string().parse::<i32>().unwrap();
-    buf.clear();
+    // 初始化设备
+    let mut con = MyConnection::new(&port_name);
 
+    // 发包让esp32返回步进电机数目
+    con.port.write("2".as_bytes()).unwrap();
+    let mut reader = BufReader::new(&mut con.port);
+    let available = reader.read_line(&mut buf).unwrap();
+    if available > 0 {
+        con.motor_count = buf.trim().to_string().parse::<i32>().unwrap();
+        print!("初始化成功，设备已经连接{}个电机", con.motor_count);
+        buf.clear();
+    } else {
+        print!("无法获取电机数，请检测设备是否正常");
+        return;
+    }
+
+    // 读取Mid文件
     let midi_data = std::fs::read(&file).unwrap();
     let Smf { header, tracks } = &Smf::parse(&midi_data).unwrap();
 
     let timer = Ticker::try_from(header.timing).unwrap();
-
-    let con = MyConnection::new(&port, motor_count);
     let sheet = match header.format {
         Format::SingleTrack | Format::Sequential => Sheet::sequential(&tracks),
         Format::Parallel => Sheet::parallel(&tracks),
@@ -79,14 +86,14 @@ impl Connection for MyConnection {
 }
 
 impl MyConnection {
-    fn new(port_name: &str, motor_count: i32) -> MyConnection {
+    fn new(port_name: &str) -> MyConnection {
         MyConnection {
             port: serialport::new(port_name, 115_200)
-                .timeout(Duration::from_millis(10))
+                .timeout(Duration::from_millis(1000))
                 .open()
                 .expect("Failed to open port"),
             pressed: HashMap::new(),
-            motor_count,
+            motor_count: 1,
         }
     }
 
@@ -125,6 +132,16 @@ impl MyConnection {
                     .expect("Error writing");
                 self.pressed.remove(&channel);
             }
+        }
+    }
+
+    // 停止播放
+    fn shutdown(&mut self) {
+        for i in 0..(self.motor_count - 1) {
+            let play_data = format!("{} {}\n", 1, i);
+            self.port
+                .write(play_data.as_bytes())
+                .expect("Error writing");
         }
     }
 }

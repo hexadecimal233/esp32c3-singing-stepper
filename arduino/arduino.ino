@@ -60,7 +60,7 @@ void setup() {
     channels[i].init(i);
   }
 
-  Serial.println(F("Singing Motor by hexadecimal233!"));
+  Serial.print(F("Singing Motor by hexadecimal233!"));
 }
 
 // 串行控制电机
@@ -94,6 +94,9 @@ void update_status() {
         Serial.print(F("Received stop: channel="));
         Serial.println(index);
         break;
+      }
+      case 2: { // 获取电机数目
+        Serial.println(CHANNEL_NUM);
       }
     }
   }
