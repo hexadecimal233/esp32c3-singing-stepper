@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ctrlc = "3.4.5"
 nodi = "1.0.1"
 serialport = "4.5.1"

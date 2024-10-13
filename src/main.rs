@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use midly::{num::u7, MidiMessage, Smf};
 use nodi::midly;
 use nodi::{midly::Format, timers::Ticker, Connection, MidiEvent, Player, Sheet};
+
+static PLAYING: AtomicBool = AtomicBool::new(true);
 
 fn main() {
     let mut buf = String::new(); // 通用字符串Buffer
@@ -32,7 +35,8 @@ fn main() {
     let available = reader.read_line(&mut buf).unwrap();
     if available > 0 {
         con.motor_count = buf.trim().to_string().parse::<i32>().unwrap();
-        print!("初始化成功，设备已经连接{}个电机", con.motor_count);
+        println!("初始化成功，设备已经连接{}个电机", con.motor_count);
+        std::io::stdout().flush().unwrap();
         buf.clear();
     } else {
         print!("无法获取电机数，请检测设备是否正常");
@@ -50,6 +54,10 @@ fn main() {
     };
 
     let mut player = Player::new(timer, con);
+    ctrlc::set_handler(move || {
+        PLAYING.store(false, Ordering::Relaxed);
+    })
+    .unwrap();
     player.play(&sheet);
 }
 
@@ -75,13 +83,13 @@ impl Connection for MyConnection {
                     self.play_note(channel, key);
                 }
             }
-            MidiMessage::NoteOff { key, vel } => {
+            MidiMessage::NoteOff { key, vel: _ } => {
                 self.stop_note(channel, key);
             }
             _ => {}
         }
 
-        true
+        PLAYING.load(Ordering::Relaxed)
     }
 }
 
@@ -132,16 +140,6 @@ impl MyConnection {
                     .expect("Error writing");
                 self.pressed.remove(&channel);
             }
-        }
-    }
-
-    // 停止播放
-    fn shutdown(&mut self) {
-        for i in 0..(self.motor_count - 1) {
-            let play_data = format!("{} {}\n", 1, i);
-            self.port
-                .write(play_data.as_bytes())
-                .expect("Error writing");
         }
     }
 }
