@@ -106,7 +106,6 @@ impl MyConnection {
     }
 
     // 播放音符，参数分别是：电机编号，音高
-    // C5 以下的音符可能会出现类似嘶哑的声音
     fn play_note(&mut self, channel: i32, key: u7) {
         if self.pressed.contains_key(&channel) {
             return;
